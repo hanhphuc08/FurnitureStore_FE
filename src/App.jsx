@@ -3,6 +3,8 @@ import HomePage from "./pages/Home.jsx";
 import ProductListPage from "./pages/ProductList.jsx";
 import ProductDetailPage from "./pages/ProductDetail.jsx";
 import CartPage from "./pages/Cart.jsx";
+import CheckoutPage from "./pages/Checkout.jsx";
+import OrderSuccessPage from "./pages/OrderSuccess.jsx";
 import LoginPage from "./pages/Login.jsx";
 import RegisterPage from "./pages/Register.jsx";
 import ForgotPasswordPage from "./pages/ForgotPassword.jsx";
@@ -16,6 +18,8 @@ function App() {
         <Route path="/products" element={<ProductListPage />} />
         <Route path="/products/:slug" element={<ProductDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

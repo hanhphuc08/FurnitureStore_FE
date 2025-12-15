@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import MainFooter from "../components/layout/MainFooter.jsx";
 import MainHeader from "../components/layout/MainHeader.jsx";
 import { getProductDetail } from "../api/productApi.js";
+import { addToCart } from "../api/cartApi.js";
 
 const fallbackThumbs = [
   "https://lh3.googleusercontent.com/aida-public/AB6AXuBIk2wYFE9eyB6bmoh-EgqOpQgizjtB7GfYCluLz3O7YAEA9mK_Ndlk6OCXBLzHSSsSUfta054X7h_t0kyWXuQpHze-qqctsN4VkY81Gr7rOT0jd5PoltZfo0glKCusK4htKm5ZFB8g_pLIwHzQzx6IPD72oY5jKtbcUortm-_21GJbVHW7edKF2tm7DKnN8-zax8qt_9-fe0SF6MPeWHfIDUzKI54GKNF9QGIMn5jIV55uJB7ABWHewrbSSwZGfODlwU6TERBtbWYl",
@@ -39,6 +40,7 @@ function formatVnd(value) {
 
 function ProductDetailPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [activeImage, setActiveImage] = useState("");
@@ -49,6 +51,7 @@ function ProductDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -63,6 +66,7 @@ function ProductDetailPage() {
         setData(d);
         const firstImg = d?.mainImage || d?.gallery?.[0] || "";
         setActiveImage(firstImg);
+
         setSelectedColor(0);
         setSelectedSize(0);
         setQty(1);
@@ -83,30 +87,45 @@ function ProductDetailPage() {
     const list = [];
     if (data.mainImage) list.push(data.mainImage);
     if (Array.isArray(data.gallery)) list.push(...data.gallery);
-    // unique
     return Array.from(new Set(list)).slice(0, 8);
   }, [data]);
 
+  // ===== VARIANTS: items có variantId thật =====
+  const variantItems = useMemo(() => data?.variants?.items || [], [data]);
+
+  const colorOptions = useMemo(() => {
+    const colors = data?.variants?.colors;
+    if (Array.isArray(colors) && colors.length) return colors;
+    // fallback nếu BE chưa trả colors: tự build từ items
+    const uniq = Array.from(new Set(variantItems.map(v => v.color).filter(Boolean)));
+    return uniq.map((name) => ({ name, hex: "#CBD5E1" }));
+  }, [data, variantItems]);
+
+  const sizeOptions = useMemo(() => {
+    const sizes = data?.variants?.sizes;
+    if (Array.isArray(sizes) && sizes.length) return sizes;
+    const uniq = Array.from(new Set(variantItems.map(v => v.size).filter(Boolean)));
+    return uniq.map((label) => ({ label }));
+  }, [data, variantItems]);
+
+  const variantList = useMemo(() => data?.variantList || [], [data]);
+
+  const selectedColorValue = colorOptions?.[selectedColor]?.name || "";
+  const selectedSizeValue = sizeOptions?.[selectedSize]?.label || "";
+
+  const selectedVariant = useMemo(() => {
+  if (!variantList.length) return null;
+  return variantList.find(v =>
+    String(v.color || "").toLowerCase() === String(selectedColorValue).toLowerCase() &&
+    String(v.size || "").toLowerCase() === String(selectedSizeValue).toLowerCase()
+  ) || null;
+}, [variantList, selectedColorValue, selectedSizeValue]);
+
   const displayPrice = useMemo(() => {
-    // nếu size có price thì ưu tiên
-    const sizePrice = data?.variants?.sizes?.[selectedSize]?.price;
-    return sizePrice ?? data?.price ?? 0;
-  }, [data, selectedSize]);
-
-  const colorOptions = data?.variants?.colors || [
-    { name: "Trắng Kem", hex: "#F5F5DC" },
-    { name: "Nâu", hex: "#D2B48C" },
-    { name: "Xám", hex: "#808080" },
-  ];
-
-  const sizeOptions = data?.variants?.sizes?.length
-    ? data.variants.sizes
-    : [{ label: "Tiêu chuẩn", price: data?.price ?? 0 }];
-
-  const related = data?.relatedProducts || [];
-
-  const rating = data?.rating ?? 4.8;
-  const reviewCount = data?.reviewCount ?? 125;
+    // ưu tiên giá variant
+    if (selectedVariant?.price != null) return selectedVariant.price;
+    return data?.price ?? 0;
+  }, [data, selectedVariant]);
 
   function dec() {
     setQty((q) => Math.max(1, q - 1));
@@ -114,6 +133,30 @@ function ProductDetailPage() {
   function inc() {
     setQty((q) => Math.min(99, q + 1));
   }
+
+  async function handleAddToCart() {
+    if (!data?.id) return;
+
+    try {
+      setAdding(true);
+      await addToCart({
+        productId: data.id,
+        variantId: selectedVariant?.variantId ?? null,
+        quantity: qty,
+      });
+      navigate("/cart");
+    } catch (e) {
+      if (e.message === "UNAUTHORIZED") navigate("/login");
+      else alert(e.message || "Không thêm được vào giỏ");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  const related = data?.relatedProducts || [];
+
+  const rating = data?.rating ?? 4.8;
+  const reviewCount = data?.reviewCount ?? 125;
 
   return (
     <div className="bg-[#F8F9FA] font-display text-[#333333] dark:bg-background-dark dark:text-text-dark">
@@ -287,19 +330,14 @@ function ProductDetailPage() {
 
               <button
                 type="button"
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#556B2F] py-3 font-bold text-white hover:bg-[#445525]"
-                onClick={() => {
-                  // TODO: nối cart API sau
-                  alert(
-                    `Thêm vào giỏ: ${data?.name}\nSL: ${qty}\nSize: ${
-                      sizeOptions[selectedSize]?.label
-                    }\nColor: ${colorOptions[selectedColor]?.name}`
-                  );
-                }}
+                disabled={adding || loading || !data?.id}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#556B2F] py-3 font-bold text-white hover:bg-[#445525] disabled:opacity-60"
+                onClick={handleAddToCart}
               >
                 <span className="material-symbols-outlined">shopping_bag</span>
-                Thêm vào giỏ hàng
+                {adding ? "Đang thêm..." : "Thêm vào giỏ hàng"}
               </button>
+
 
               <button
                 type="button"

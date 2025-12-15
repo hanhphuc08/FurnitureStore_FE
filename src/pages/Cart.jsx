@@ -21,12 +21,14 @@ function CartPage() {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedItems, setSelectedItems] = useState([]);
 
   useEffect(() => {
     async function loadCart() {
       try {
         const data = await getMyCart();
         setCart(data);
+        setSelectedItems(data?.items?.map(item => item.cartItemId) || []);
       } catch (e) {
         if (e.message === "UNAUTHORIZED") {
           navigate("/login");
@@ -49,6 +51,23 @@ function CartPage() {
   async function removeItem(item) {
     const updated = await removeCartItem(item.cartItemId);
     setCart(updated);
+    // Remove from selected if removed
+    setSelectedItems(prev => prev.filter(id => id !== item.cartItemId));
+  }
+
+  function toggleItemSelection(cartItemId) {
+    setSelectedItems(prev =>
+      prev.includes(cartItemId)
+        ? prev.filter(id => id !== cartItemId)
+        : [...prev, cartItemId]
+    );
+  }
+
+  function toggleSelectAll() {
+    const allIds = items.map(item => item.cartItemId);
+    setSelectedItems(prev =>
+      prev.length === allIds.length ? [] : allIds
+    );
   }
 
   if (loading) {
@@ -70,6 +89,10 @@ function CartPage() {
   }
 
   const items = cart?.items || [];
+
+  const selectedCartItems = items.filter(item => selectedItems.includes(item.cartItemId));
+  const selectedSubtotal = selectedCartItems.reduce((sum, item) => sum + item.lineTotal, 0);
+  const selectedTotal = selectedSubtotal; // Assuming no additional fees for now
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] font-display text-[#0d1b1b]">
@@ -97,11 +120,31 @@ function CartPage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-3">
             {/* ITEMS */}
             <section className="space-y-6 lg:col-span-2">
+              {/* Select All */}
+              <div className="flex items-center gap-2 rounded-lg border bg-white p-4">
+                <input
+                  type="checkbox"
+                  checked={selectedItems.length === items.length && items.length > 0}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4"
+                />
+                <label className="font-semibold">Chọn tất cả ({items.length} sản phẩm)</label>
+              </div>
+
               {items.map((item) => (
                 <article
                   key={item.cartItemId}
                   className="flex gap-4 rounded-lg border bg-white p-4"
                 >
+                  <div className="flex flex-col items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.includes(item.cartItemId)}
+                      onChange={() => toggleItemSelection(item.cartItemId)}
+                      className="h-4 w-4"
+                    />
+                  </div>
+
                   <div
                     className="h-28 w-28 rounded-lg bg-cover bg-center"
                     style={{ backgroundImage: `url("${item.image}")` }}
@@ -159,7 +202,7 @@ function CartPage() {
 
                 <div className="flex justify-between">
                   <span>Tạm tính</span>
-                  <span>{formatCurrency(cart.subtotal)}</span>
+                  <span>{formatCurrency(selectedSubtotal)}</span>
                 </div>
 
                 <div className="flex justify-between">
@@ -171,11 +214,15 @@ function CartPage() {
 
                 <div className="flex justify-between text-lg font-bold">
                   <span>Tổng cộng</span>
-                  <span>{formatCurrency(cart.total)}</span>
+                  <span>{formatCurrency(selectedTotal)}</span>
                 </div>
 
-                <button className="w-full rounded-lg bg-primary py-3 font-bold text-white">
-                  Tiến hành thanh toán
+                <button
+                  className="w-full rounded-lg bg-primary py-3 font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={selectedItems.length === 0}
+                  onClick={() => navigate("/checkout", { state: { selectedItems } })}
+                >
+                  Tiến hành thanh toán ({selectedItems.length} sản phẩm)
                 </button>
               </div>
             </aside>

@@ -65,3 +65,12 @@ export async function previewCheckout(data) {
   if (!res.ok) throw new Error(error?.message || "Không thể áp dụng mã");
   return res.json();
 }
+
+/**
+ * Tạo URL thanh toán VNPay (mock)
+ * @param {number} orderId - ID đơn hàng
+ */
+export async function createMockVnpayPayment(orderId) {
+  // For mock, directly return FE URL instead of calling BE
+  return { paymentUrl: `http://localhost:5173/mock-vnpay/${orderId}` };
+}

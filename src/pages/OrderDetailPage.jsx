@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import MainFooter from "../components/layout/MainFooter.jsx";
 import MainHeader from "../components/layout/MainHeader.jsx";
@@ -10,61 +10,62 @@ const formatCurrency = (value) =>
     maximumFractionDigits: 0,
   }).format(value || 0);
 
-function OrderSuccessPage() {
+function OrderDetailPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [orderInfo, setOrderInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Simulate loading order info
-    // In real app, you would fetch order details from API
-    const loadOrderInfo = async () => {
-      try {
-        const res = await fetch(`http://localhost:8686/api/orders/${orderId}`, { credentials: "include" });
-          if (res.status === 401) return navigate("/login");
-          if (!res.ok) throw new Error("ORDER_NOT_FOUND");
-          const data = await res.json();
-          setOrderInfo({
-            orderId: data.orderId,
-            status: data.status,
-            paymentStatus: data.paymentStatus,
-            paymentMethod: data.paymentMethod,
-            subtotal: data.subtotal,
-            discount: data.discount,
-            shippingFee: data.shippingFee,
-            total: data.total,
-            items: data.items.map(x => ({
-              name: x.name,
-              quantity: x.quantity,
-              unitPrice: x.unitPrice,
-              lineTotal: x.lineTotal
-            })),
-            shippingInfo: {
-              fullName: data.shippingInfo.fullName,
-              phone: data.shippingInfo.phone,
-              address: data.shippingInfo.address,
-              city: data.shippingInfo.city,
-              district: data.shippingInfo.district,
-              ward: data.shippingInfo.ward
-            },
-            createdAt: data.createdAt
-          });
-      } catch (error) {
-        console.error("Failed to load order:", error);
-        // Redirect to home if order not found
-        navigate("/");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (orderId) {
-      loadOrderInfo();
-    } else {
-      navigate("/");
+  const loadOrderInfo = useCallback(async () => {
+    try {
+      const res = await fetch(`http://localhost:8686/api/orders/${orderId}`, { credentials: "include" });
+      if (res.status === 401) return navigate("/login");
+      if (!res.ok) throw new Error("ORDER_NOT_FOUND");
+      const data = await res.json();
+      setOrderInfo({
+        orderId: data.orderId,
+        status: data.status,
+        paymentStatus: data.paymentStatus,
+        paymentMethod: data.paymentMethod,
+        subtotal: data.subtotal,
+        discount: data.discount,
+        shippingFee: data.shippingFee,
+        total: data.total,
+        items: data.items.map(x => ({
+          name: x.name,
+          quantity: x.quantity,
+          unitPrice: x.unitPrice,
+          lineTotal: x.lineTotal
+        })),
+        shippingInfo: {
+          fullName: data.shippingInfo.fullName,
+          phone: data.shippingInfo.phone,
+          address: data.shippingInfo.address,
+          city: data.shippingInfo.city,
+          district: data.shippingInfo.district,
+          ward: data.shippingInfo.ward
+        },
+        createdAt: data.createdAt
+      });
+    } catch (error) {
+      console.error("Failed to load order:", error);
+      // Redirect to orders if order not found
+      navigate("/orders");
+    } finally {
+      setLoading(false);
     }
   }, [orderId, navigate]);
+
+  useEffect(() => {
+    if (orderId) {
+      loadOrderInfo();
+      // Polling for real-time updates every 30 seconds
+      const interval = setInterval(loadOrderInfo, 30000);
+      return () => clearInterval(interval);
+    } else {
+      navigate("/orders");
+    }
+  }, [orderId, navigate, loadOrderInfo]);
 
   if (loading) {
     return (
@@ -81,8 +82,8 @@ function OrderSuccessPage() {
         <MainHeader />
         <div className="p-10 text-center">
           <p>Không tìm thấy thông tin đơn hàng</p>
-          <Link to="/" className="mt-4 inline-block text-primary hover:underline">
-            Về trang chủ →
+          <Link to="/orders" className="mt-4 inline-block text-primary hover:underline">
+            Về danh sách đơn hàng →
           </Link>
         </div>
       </div>
@@ -94,18 +95,11 @@ function OrderSuccessPage() {
       <MainHeader />
 
       <main className="mx-auto w-full max-w-4xl px-4 py-8">
-        {/* Success Header */}
+        {/* Detail Header */}
         <div className="mb-8 text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <span className="material-symbols-outlined text-3xl text-green-600">
-                check_circle
-              </span>
-            </div>
-          </div>
-          <h1 className="text-3xl font-black text-green-600">Đặt hàng thành công!</h1>
+          <h1 className="text-3xl font-black text-primary">Chi tiết đơn hàng</h1>
           <p className="mt-2 text-gray-600">
-            Cảm ơn bạn đã tin tưởng và mua sắm tại cửa hàng của chúng tôi.
+            Theo dõi trạng thái và thông tin chi tiết đơn hàng của bạn.
           </p>
           <p className="text-sm text-gray-500">
             Mã đơn hàng: <span className="font-mono font-bold">#{orderInfo.orderId}</span>
@@ -225,31 +219,20 @@ function OrderSuccessPage() {
               </div>
             </section>
 
-            {/* Next Steps */}
-            <section className="rounded-xl bg-blue-50 p-6 dark:bg-blue-900/20">
-              <h3 className="mb-3 font-bold text-blue-800 dark:text-blue-200">Tiếp theo sẽ xảy ra gì?</h3>
-              <ul className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
-                <li>✅ Chúng tôi sẽ xác nhận đơn hàng trong vòng 24h</li>
-                <li>✅ Sản phẩm sẽ được chuẩn bị và đóng gói cẩn thận</li>
-                <li>✅ Bạn sẽ nhận được thông tin vận chuyển qua SMS</li>
-                <li>✅ Thời gian giao hàng dự kiến: 3-5 ngày</li>
-              </ul>
-            </section>
-
             {/* Actions */}
             <div className="flex flex-col gap-3">
               <Link
-                to="/products"
+                to="/orders"
                 className="w-full rounded-lg bg-primary py-3 text-center font-bold text-white hover:bg-primary/90"
               >
-                Tiếp tục mua sắm
+                Về danh sách đơn hàng
               </Link>
-              <Link
-                to="/"
+              <button
+                onClick={() => window.location.reload()}
                 className="w-full rounded-lg border border-gray-300 py-3 text-center font-medium hover:bg-gray-50 dark:border-gray-600"
               >
-                Về trang chủ
-              </Link>
+                Làm mới
+              </button>
             </div>
           </div>
         </div>
@@ -269,4 +252,4 @@ function OrderSuccessPage() {
   );
 }
 
-export default OrderSuccessPage;
+export default OrderDetailPage;

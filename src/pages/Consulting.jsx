@@ -16,7 +16,57 @@ const portfolioProjects = [
   { name: 'Căn hộ Penthouse', location: 'Bình Thạnh, TP. HCM', image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAq9mEcSz0j9ULERiC21K4wz7NbRpStEvUVOqrh-L-RtjFYLwX5Iq4TtRk1peAPYRSr_2u6X3H7xR3j_JBeX8olAJNPb-YtTVBKCn9RPKkw4yhsuBUyoM4LLyVLf5LRRG_SSxpxg1V6gzqvSScUlK92ZLB9mlIqfjTxOxq4gfTZJQaPuD19FBIoIUVsE1zCN5RZi_3M2J_VBuDC95f7bMBu5QP1Oz9PYgJtbvBOxbaqpihkwNMKZXAxtK9Pwo8FzegqI8dmzuHmkOiq' },
 ]
 
+import React, { useState } from 'react';
+
 function ConsultingPage() {
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [service, setService] = useState("Tư vấn thiết kế căn hộ");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    if (!fullName.trim() || !phone.trim() || !service.trim()) {
+      setError("Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Dịch vụ quan tâm.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/consulting-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          service: service.trim(),
+          message: message.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        let data = {};
+        try {
+          const text = await res.text();
+          data = text && res.headers.get("content-type")?.includes("application/json") ? JSON.parse(text) : {};
+        } catch {
+          // ignore
+        }
+        throw new Error(data.message || "Gửi yêu cầu thất bại");
+      }
+      setSuccess("Gửi yêu cầu thành công! Chúng tôi sẽ liên hệ bạn sớm nhất.");
+      setFullName(""); setPhone(""); setEmail(""); setService("Tư vấn thiết kế căn hộ"); setMessage("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="bg-background-light text-[#0d1b1b] dark:bg-background-dark dark:text-text-dark">
       <MainHeader />
@@ -109,42 +159,66 @@ function ConsultingPage() {
             <h2 className="text-3xl font-bold">Nhận Tư Vấn Miễn Phí</h2>
             <p className="text-text-muted-light">Để lại thông tin, chuyên gia của chúng tôi sẽ liên hệ sớm nhất.</p>
           </div>
-          <form className="mt-6 grid gap-4 md:grid-cols-2">
-            {[
-              { id: 'name', label: 'Họ và Tên', placeholder: 'Nguyễn Văn A' },
-              { id: 'phone', label: 'Số Điện Thoại', placeholder: '090 xxx xxxx' },
-              { id: 'email', label: 'Email', placeholder: 'email@example.com', span: 2 },
-              { id: 'service', label: 'Dịch Vụ Quan Tâm', placeholder: 'Tư vấn thiết kế căn hộ', span: 2 },
-            ].map((field) => (
-              <label key={field.id} className={`flex flex-col ${field.span === 2 ? 'md:col-span-2' : ''}`}>
-                <span className="mb-1 text-sm font-medium">{field.label}</span>
-                {field.id === 'service' ? (
-                  <select className="rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40">
-                    <option>Tư vấn thiết kế căn hộ</option>
-                    <option>Tư vấn thiết kế nhà phố/biệt thự</option>
-                    <option>Thiết kế văn phòng</option>
-                    <option>Khác</option>
-                  </select>
-                ) : (
-                  <input
-                    id={field.id}
-                    placeholder={field.placeholder}
-                    className="rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40"
-                  />
-                )}
-              </label>
-            ))}
+          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+            <label className="flex flex-col">
+              <span className="mb-1 text-sm font-medium">Họ và Tên</span>
+              <input
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                placeholder="Nguyễn Văn A"
+                className="rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40"
+                required
+              />
+            </label>
+            <label className="flex flex-col">
+              <span className="mb-1 text-sm font-medium">Số Điện Thoại</span>
+              <input
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="090 xxx xxxx"
+                className="rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40"
+                required
+              />
+            </label>
+            <label className="flex flex-col md:col-span-2">
+              <span className="mb-1 text-sm font-medium">Email</span>
+              <input
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                className="rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40"
+                type="email"
+              />
+            </label>
+            <label className="flex flex-col md:col-span-2">
+              <span className="mb-1 text-sm font-medium">Dịch Vụ Quan Tâm</span>
+              <select
+                value={service}
+                onChange={e => setService(e.target.value)}
+                className="rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40"
+                required
+              >
+                <option>Tư vấn thiết kế căn hộ</option>
+                <option>Tư vấn thiết kế nhà phố/biệt thự</option>
+                <option>Thiết kế văn phòng</option>
+                <option>Khác</option>
+              </select>
+            </label>
             <label className="md:col-span-2">
               <span className="mb-1 block text-sm font-medium">Lời nhắn</span>
               <textarea
                 rows={4}
+                value={message}
+                onChange={e => setMessage(e.target.value)}
                 placeholder="Hãy cho chúng tôi biết thêm về yêu cầu của bạn..."
                 className="w-full rounded-lg border border-primary/30 px-3 py-2 focus:border-primary focus:ring-primary/40"
               />
             </label>
+            {error && <div className="md:col-span-2 text-red-600 text-center">{error}</div>}
+            {success && <div className="md:col-span-2 text-green-600 text-center">{success}</div>}
             <div className="md:col-span-2 text-center">
-              <button className="rounded-lg bg-primary px-6 py-3 text-base font-bold text-background-dark hover:bg-primary/90">
-                Gửi Yêu Cầu
+              <button type="submit" className="rounded-lg bg-primary px-6 py-3 text-base font-bold text-background-dark hover:bg-primary/90" disabled={loading}>
+                {loading ? "Đang gửi..." : "Gửi Yêu Cầu"}
               </button>
             </div>
           </form>

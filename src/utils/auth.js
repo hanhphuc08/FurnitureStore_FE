@@ -1,3 +1,5 @@
+import { logoutRequest } from "../api/authApi";
+
 export function getCurrentUser() {
   try {
     return JSON.parse(localStorage.getItem("user"));
@@ -6,6 +8,12 @@ export function getCurrentUser() {
   }
 }
 
-export function logout() {
-  localStorage.removeItem("user");
+export async function logout() {
+  try {
+    await logoutRequest();  
+  } catch {
+    // optional ignore
+  } finally {
+    localStorage.removeItem("user"); 
+  }
 }

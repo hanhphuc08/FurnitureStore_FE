@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState} from "react";
 import { getCurrentUser, logout } from "../../utils/auth";
 
 const navItems = [
@@ -11,22 +11,21 @@ const navItems = [
 ]
 
 
-function MainHeader() {
+function MainHeader()
+{
   const navigate = useNavigate();
-
-  const [user, setUser] = useState(() => getCurrentUser());
-  const [openMenu, setOpenMenu] = useState(false);
-
-  function handleCartClick() {
-    if (!user) navigate("/login");
-    else navigate("/cart");
-  }
-
-  function handleLogout() {
-    logout();
-    setUser(null);
-    setOpenMenu(false);
-    navigate("/login");
+  const [user, setUser] = useState(() => getCurrentUser()); 
+  const [openMenu, setOpenMenu] = useState(false); 
+  function handleCartClick() 
+  { 
+    if (!user) navigate("/login"); 
+    else navigate("/cart"); } 
+  async function handleLogout() 
+  { 
+    await logout(); 
+    setUser(null); 
+    setOpenMenu(false); 
+    navigate("/login"); 
   }
 
   return (
@@ -85,6 +84,12 @@ function MainHeader() {
                   <Link to="/orders" className="block px-4 py-2 text-sm hover:bg-gray-100">
                     Đơn hàng
                   </Link>
+                      {user?.role === "ADMIN" && (
+                  <Link to="/admin" className="block px-4 py-2 text-sm hover:bg-gray-100">
+                      Quản trị
+                  </Link>
+                  )}
+
                   <button
                     onClick={handleLogout}
                     className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100"

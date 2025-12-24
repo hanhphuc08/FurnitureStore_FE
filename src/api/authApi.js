@@ -18,7 +18,7 @@ export async function loginRequest(emailOrUsername, password) {
 
 export async function registerRequest(fullName, email, password) {
   const res = await fetch(`${BASE_URL}/api/auth/register`, {
-    credentials: "include", // ✅ thêm cho đồng bộ
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fullName, email, password }),
@@ -62,10 +62,12 @@ export async function logoutRequest() {
     credentials: "include",
     method: "POST",
   });
-
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(txt || "Logout thất bại");
   }
+  Object.keys(localStorage)
+    .filter(k => k.startsWith("chatbot_"))
+    .forEach(k => localStorage.removeItem(k));
   return res.json();
 }

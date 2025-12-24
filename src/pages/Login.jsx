@@ -21,7 +21,12 @@ function LoginPage() {
       localStorage.setItem("user", JSON.stringify(data));
 
       setLoading(false);
-      navigate("/"); 
+      // Nếu có trường role trong data, kiểm tra role
+      if (data && (data.role === "ADMIN" || data.role === "admin")) {
+        navigate(data.role === "ADMIN" ? "/admin" : "/");
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || "Đăng nhập thất bại");

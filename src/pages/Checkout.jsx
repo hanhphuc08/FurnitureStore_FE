@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import MainFooter from "../components/layout/MainFooter.jsx";
 import MainHeader from "../components/layout/MainHeader.jsx";
 import { getMyCart } from "../api/cartApi.js";
-import { checkout, previewCheckout } from "../api/checkoutApi.js";
+import { checkout, previewCheckout, createMockVnpayPayment } from "../api/checkoutApi.js";
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("vi-VN", {
@@ -77,7 +77,6 @@ function CheckoutPage() {
   const [shippingInfo, setShippingInfo] = useState({
     fullName: "",
     phone: "",
-    email: "",
     address: "",
     city: "",
     district: "",
@@ -200,7 +199,7 @@ function CheckoutPage() {
     }
 
     // Validate form
-    const required = ['fullName', 'phone', 'email', 'address', 'city'];
+    const required = ['fullName', 'phone', 'address', 'city'];
     const missing = required.filter(field => !shippingInfo[field].trim());
     if (missing.length) {
       alert(`Vui lòng điền đầy đủ thông tin: ${missing.join(', ')}`);
@@ -224,8 +223,30 @@ function CheckoutPage() {
       const response = await checkout(orderData);
 
       console.log("Checkout response:", response);
-      alert("Đặt hàng thành công! Chúng tôi sẽ liên hệ với bạn sớm.");
-      navigate(`/order-success/${response.orderId}`);
+
+      if (paymentMethod === "vnpay") {
+        // For VNPay, create payment URL and redirect
+        try {
+          const vnpayResponse = await createMockVnpayPayment(response.orderId);
+          window.location.href = vnpayResponse.paymentUrl;
+          return; // Don't navigate, as we're redirecting
+        } catch (vnpayError) {
+          console.error("VNPay error:", vnpayError);
+          alert("Không thể tạo liên kết thanh toán VNPay. Vui lòng thử lại.");
+          return;
+        }
+      } else if (paymentMethod === "cod") {
+        // COD: order created, email sent immediately
+        alert("Đặt hàng thành công! Chúng tôi sẽ liên hệ với bạn sớm.");
+        navigate(`/order-success/${response.orderId}`);
+      } else if (paymentMethod === "bank") {
+        // Bank: redirect to bank payment page
+        navigate(`/bank-payment/${response.orderId}`);
+      } else {
+        // Momo: order created, payment later, email after payment
+        alert("Đặt hàng thành công! Vui lòng hoàn tất thanh toán để nhận hàng.");
+        navigate(`/orders/${response.orderId}`); // Go to order detail to show payment info
+      }
 
     } catch (err) {
       console.error(err);
@@ -321,20 +342,6 @@ function CheckoutPage() {
                     type="tel"
                     name="phone"
                     value={shippingInfo.phone}
-                    onChange={handleShippingChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium mb-1">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={shippingInfo.email}
                     onChange={handleShippingChange}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-primary focus:outline-none"
                     required
@@ -445,6 +452,21 @@ function CheckoutPage() {
                   <div>
                     <div className="font-medium">Ví MoMo</div>
                     <div className="text-sm text-gray-500">Thanh toán qua ví điện tử MoMo</div>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="vnpay"
+                    checked={paymentMethod === "vnpay"}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="h-4 w-4 text-primary"
+                  />
+                  <div>
+                    <div className="font-medium">VNPay</div>
+                    <div className="text-sm text-gray-500">Thanh toán qua VNPay</div>
                   </div>
                 </label>
               </div>
